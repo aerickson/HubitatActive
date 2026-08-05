@@ -130,12 +130,16 @@ def remoteChildNetworkId(action) {
 	return "${device.id}-samsung-remote-${action}"
 }
 
+def remoteChildLabel(label) {
+	return "${device.displayName}-${label}"
+}
+
 def configureRemoteChild(child, action, label) {
 	if (!child) { return }
 	child.updateDataValue("action", action)
-	child.setLabel(label)
+	child.setLabel(remoteChildLabel(label))
 	child.parse([[name: "numberOfButtons", value: 1,
-				  descriptionText: "${label} has one remote button"]])
+				  descriptionText: "${remoteChildLabel(label)} has one remote button"]])
 }
 
 def reconcileRemoteChildren() {
@@ -174,7 +178,7 @@ def reconcileRemoteChildren() {
 		try {
 			def child = addChildDevice("hubitat", "Generic Component Button Controller",
 					remoteChildNetworkId(action),
-					[name: label, label: label, isComponent: true,
+					[name: remoteChildLabel(label), label: remoteChildLabel(label), isComponent: true,
 					 data: [action: action]])
 			configureRemoteChild(child, action, label)
 			existing[action] = child
