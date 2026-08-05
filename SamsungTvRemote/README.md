@@ -24,10 +24,17 @@ https://github.com/DaveGut/HubitatActive/blob/master/SamsungTvRemote/Docs/Prefs-
 ### Commands data: 
 https://github.com/DaveGut/HubitatActive/blob/master/SamsungTvRemote/Docs/Commands.pdf
 
-### Note on Button Interface: 
+### Note on Button Interface:
 https://github.com/DaveGut/HubitatActive/blob/master/SamsungTvRemote/Docs/ButtonInterface.pdf
 
-### Samsung App List (reference only): 
+### Dashboard buttons
+After saving preferences, the driver creates child button devices for the
+common remote controls. Add those child devices to a dashboard as ordinary
+Button tiles. The parent device remains available for the Switch tile and
+advanced commands. Websocket maintenance, configuration, and commands that
+require parameters are not exposed as child buttons.
+
+### Samsung App List (reference only):
 https://github.com/DaveGut/HubitatActive/blob/master/SamsungTvRemote/Docs/SamsungAppList.pdf
 
 ### Samsung Remote Key List (reference only):

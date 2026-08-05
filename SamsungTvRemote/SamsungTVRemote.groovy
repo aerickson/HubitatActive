@@ -88,7 +88,126 @@ def updated() {
 		if (!state.appData) { state.appData == [:] }
 		updStatus << [updApps: updateAppCodes()]
 	}
+	reconcileRemoteChildren()
 	logInfo("updated: ${updStatus}")
+}
+
+//	===== Dashboard child buttons =====
+// These children provide one ordinary Hubitat button device per user-facing
+// remote action.  This avoids requiring the dashboard's TVRemoteButton tile
+// and its numeric index configuration.
+def remoteChildDefinitions() {
+	return [
+		["powerToggle", "Power"],
+		["mute", "Mute"],
+		["numericKeyPad", "Numeric Keypad"],
+		["Return", "Back"],
+		["arrowLeft", "Left"],
+		["arrowRight", "Right"],
+		["arrowUp", "Up"],
+		["arrowDown", "Down"],
+		["enter", "Enter"],
+		["exit", "Exit"],
+		["home", "Home"],
+		["guide", "Guide"],
+		["menu", "Menu"],
+		["sourceToggle", "Source"],
+		["channelList", "Channel List"],
+		["channelUp", "Channel Up"],
+		["channelDown", "Channel Down"],
+		["previousChannel", "Previous Channel"],
+		["volumeUp", "Volume Up"],
+		["volumeDown", "Volume Down"],
+		["play", "Play"],
+		["pause", "Pause"],
+		["stop", "Stop"],
+		["fastBack", "Fast Back"],
+		["fastForward", "Fast Forward"]
+	]
+}
+
+def remoteChildNetworkId(action) {
+	return "${device.id}-samsung-remote-${action}"
+}
+
+def configureRemoteChild(child, action, label) {
+	if (!child) { return }
+	child.updateDataValue("action", action)
+	child.setLabel(label)
+	child.parse([[name: "numberOfButtons", value: 1,
+				  descriptionText: "${label} has one remote button"]])
+}
+
+def reconcileRemoteChildren() {
+	def definitions = remoteChildDefinitions()
+	def managedPrefix = "${device.id}-samsung-remote-"
+	def validActions = definitions.collectEntries { definition ->
+		[(definition[0]): definition[1]]
+	}
+	def existing = [:]
+
+	getChildDevices()?.each { child ->
+		def childDni = child.deviceNetworkId?.toString()
+		if (!childDni?.startsWith(managedPrefix)) { return }
+
+		def action = child.getDataValue("action")
+		def valid = action && validActions.containsKey(action) &&
+					remoteChildNetworkId(action) == childDni
+		if (!valid || existing.containsKey(action)) {
+			try {
+				deleteChildDevice(childDni)
+				logInfo("Removed stale Samsung remote child: ${childDni}")
+			} catch (error) {
+				logWarn("Unable to remove stale Samsung remote child ${childDni}: ${error}")
+			}
+		} else {
+			configureRemoteChild(child, action, validActions[action])
+			existing[action] = child
+		}
+	}
+
+	definitions.each { definition ->
+		def action = definition[0]
+		def label = definition[1]
+		if (existing.containsKey(action)) { return }
+
+		try {
+			def child = addChildDevice("hubitat", "Generic Component Button Controller",
+					remoteChildNetworkId(action),
+					[name: label, label: label, isComponent: true,
+					 data: [action: action]])
+			configureRemoteChild(child, action, label)
+			existing[action] = child
+			logInfo("Created Samsung remote child: ${label}")
+		} catch (error) {
+			logWarn("Unable to create Samsung remote child ${label}: ${error}")
+		}
+	}
+}
+
+def powerToggle() {
+	if (device.currentValue("switch") == "on") {
+		off()
+	} else {
+		on()
+	}
+}
+
+// Callback used by Generic Component Button Controller children.  Each child
+// carries its action in data values; the button number is intentionally ignored.
+def componentPush(child, button) {
+	if (!child) {
+		logWarn("componentPush: missing child device")
+		return
+	}
+	def action = child.getDataValue("action")
+	def supported = remoteChildDefinitions().collect { it[0] }
+	if (!action || !supported.contains(action)) {
+		logWarn("componentPush: unsupported Samsung remote action: ${action}")
+		return
+	}
+	logDebug("componentPush: action = ${action}")
+	this."${action}"()
 }
 
 def setOnPollInterval() {
