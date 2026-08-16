@@ -1,7 +1,7 @@
 {
   "packageName": "Samsung TV Remote (AJE Fork)",
   "author": "AJE",
-  "version": "2.3.10",
+  "version": "2.3.10.1",
   "minimumHEVersion": "2.3.9",
   "documentationLink": "https://github.com/aerickson/HubitatActive/blob/20260804-children_devices/SamsungTvRemote/README.md",
   "communityLink": "https://community.hubitat.com/t/samsung-hubitat-tv-integration/55120",
