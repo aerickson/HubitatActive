@@ -12,7 +12,7 @@ d.  Created methods to support adding running app automatically to state.appData
 ===========================================================================================*/
 /*
  * AJE-maintained fork of Dave Gutheinz's Samsung TV Remote driver.
- * Fork version: 2.3.9b-aje.1
+ * Fork version: 2.3.10
  */
 def driverVer() { return version() }
 import groovy.json.JsonOutput
@@ -1711,7 +1711,7 @@ library ( // library marker davegut.Logging, line 1
 
 def nameSpace() { return "davegut" } // library marker davegut.Logging, line 10
 
-def version() { return "2.3.9b-aje.1" } // library marker davegut.Logging, line 12
+def version() { return "2.3.10" } // library marker davegut.Logging, line 12
 
 def label() { // library marker davegut.Logging, line 14
 	if (device) {  // library marker davegut.Logging, line 15
