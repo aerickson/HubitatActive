@@ -10,6 +10,10 @@ c.	Added app codes to built-in app search list.
 d.  Created methods to support adding running app automatically to state.appData
 	if the SmartThings interface is enabled.
 ===========================================================================================*/
+/*
+ * AJE-maintained fork of Dave Gutheinz's Samsung TV Remote driver.
+ * Fork version: 2.3.9b-aje.1
+ */
 def driverVer() { return version() }
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
@@ -348,10 +352,22 @@ def setPowerOnMode() {
 
 def off() {
 	logInfo("off: [frameTv: ${getDataValue("frameTv")}]")
-	sendKey("POWER", "Press")
-	pauseExecution(3000)
-	sendKey("POWER", "Release")
+	// A power key is a two-message sequence.  Queue Press and let the
+	// WebSocket-open callback start the release timer; otherwise Release can
+	// overwrite a queued Press while the socket is still connecting.
+	state.powerOffReleasePending = true
+	state.wsData = powerKeyData("Press")
+	// Re-establish the remote channel for this sequence.  wsStatus is
+	// event-driven and an old "open" value is not proof that the socket lives.
+	if (device.currentValue("wsStatus") == "open") { close() }
+	connect("remote")
 	runIn(1, onPoll)
+}
+
+def sendPowerRelease() {
+	if (!state.powerOffReleasePending) { return }
+	state.powerOffReleasePending = false
+	sendKey("POWER", "Release")
 }
 
 def setPowerOffMode() {
@@ -696,6 +712,14 @@ def sendKey(key, cmd = "Click") { // library marker davegut.samsungTvWebsocket, 
 	sendMessage("remote", JsonOutput.toJson(data).toString() ) // library marker davegut.samsungTvWebsocket, line 203
 } // library marker davegut.samsungTvWebsocket, line 204
 
+def powerKeyData(cmd) {
+	def data = [method:"ms.remote.control",
+				params:[Cmd:"${cmd}",
+						DataOfCmd:"KEY_POWER",
+						TypeOfRemote:"SendRemoteKey"]]
+	return JsonOutput.toJson(data).toString()
+}
+
 def xxxsendMessage(funct, data) { // library marker davegut.samsungTvWebsocket, line 206
 	def wsStat = device.currentValue("wsStatus") // library marker davegut.samsungTvWebsocket, line 207
 	logDebug("sendMessage: [wsStatus: ${wsStat}, function: ${funct}, data: ${data}, connectType: ${state.currentFunction}") // library marker davegut.samsungTvWebsocket, line 208
@@ -712,8 +736,17 @@ def sendMessage(funct, data) { // library marker davegut.samsungTvWebsocket, lin
 	Map logData = [method: "sendMessage", wsStat: wsStat, funct: funct, data: data] // library marker davegut.samsungTvWebsocket, line 219
 	logDebug("sendMessage: [wsStatus: ${wsStat}, function: ${funct}, data: ${data}, connectType: ${state.currentFunction}") // library marker davegut.samsungTvWebsocket, line 220
 	if (wsStat == "open" && state.currentFunction == funct) { // library marker davegut.samsungTvWebsocket, line 221
-		execMessage(data) // library marker davegut.samsungTvWebsocket, line 222
-		logData << [action: "execMessage"] // library marker davegut.samsungTvWebsocket, line 223
+		try {
+			execMessage(data) // library marker davegut.samsungTvWebsocket, line 222
+			logData << [action: "execMessage"] // library marker davegut.samsungTvWebsocket, line 223
+		} catch (error) {
+			// wsStatus is event-driven and can remain open after the underlying
+			// socket has died.  Requeue the command and establish a new socket.
+			state.wsData = data
+			logData << [action: "reconnect", error: error]
+			close()
+			connect(funct)
+		}
 	} else { // library marker davegut.samsungTvWebsocket, line 224
 		if (wsStat == "open") { close() } // library marker davegut.samsungTvWebsocket, line 225
 		state.wsData = data // library marker davegut.samsungTvWebsocket, line 226
@@ -771,6 +804,9 @@ def webSocketStatus(message) { // library marker davegut.samsungTvWebsocket, lin
 			execMessage(state.wsData) // library marker davegut.samsungTvWebsocket, line 278
 			state.wsData = "" // library marker davegut.samsungTvWebsocket, line 279
 			logData << [action: "execMessage"] // library marker davegut.samsungTvWebsocket, line 280
+			if (state.powerOffReleasePending) {
+				runIn(3, sendPowerRelease)
+			}
 		} // library marker davegut.samsungTvWebsocket, line 281
 	} else if (message == "status: closing") { // library marker davegut.samsungTvWebsocket, line 282
 		status = "closed" // library marker davegut.samsungTvWebsocket, line 283
@@ -1675,7 +1711,7 @@ library ( // library marker davegut.Logging, line 1
 
 def nameSpace() { return "davegut" } // library marker davegut.Logging, line 10
 
-def version() { return "2.3.9b" } // library marker davegut.Logging, line 12
+def version() { return "2.3.9b-aje.1" } // library marker davegut.Logging, line 12
 
 def label() { // library marker davegut.Logging, line 14
 	if (device) {  // library marker davegut.Logging, line 15
