@@ -19,7 +19,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 
 metadata {
-	definition (name: "Samsung TV Remote",
+	definition (name: "Samsung TV Remote (AJE Fork)",
 				namespace: "davegut",
 				author: "David Gutheinz",
 				singleThreaded: true,
