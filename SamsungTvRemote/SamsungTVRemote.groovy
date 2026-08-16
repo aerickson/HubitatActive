@@ -296,16 +296,32 @@ def updateDriver() {
 }
 
 def onPollParse(resp, data) {
-	def powerState
-	if (resp.status == 200) {
-		powerState = new JsonSlurper().parseText(resp.data).device.PowerState
-	} else {
-		powerState = "NC"
+	Map logData = [method: "onPollParse", httpStatus: resp?.status]
+	if (resp?.status != 200) {
+		// A failed poll means the TV state is unknown, not off.  Preserve the
+		// last switch value so a transient network failure cannot reverse a
+		// subsequent powerToggle() decision.
+		logData << [powerState: "unknown", action: "switchUnchanged"]
+		logDebug(logData)
+		return
 	}
-	def onOff = "off"
-	if (powerState == "on") { onOff = "on" }
-	Map logData = [method: "onPollParse", httpStatus: resp.status, 
-				   powerState: powerState, onOff: onOff]
+
+	def powerState
+	try {
+		powerState = new JsonSlurper().parseText(resp.data).device.PowerState
+	} catch (error) {
+		logData << [powerState: "unknown", action: "switchUnchanged", error: error]
+		logDebug(logData)
+		return
+	}
+	if (!(powerState in ["on", "off"])) {
+		logData << [powerState: powerState ?: "unknown", action: "switchUnchanged"]
+		logDebug(logData)
+		return
+	}
+
+	def onOff = powerState
+	logData << [powerState: powerState, onOff: onOff]
 	if (device.currentValue("switch") != onOff) {
 		sendEvent(name: "switch", value: onOff)
 		logData << [switch: onOff]
